@@ -38,11 +38,55 @@ $ swagger-ui --help
     Starts a new server instance on port 8080 for a new file
     $ swagger-ui swaggerFile.yaml
 
+    Run a Node.js script (also from a remote host), which builds the document
+    $ swagger-ui buildDoc.js
+
     Using port 8181 and load document from HTTP server
     $ swagger-ui --port=8181 https://petstore.swagger.io/v2/swagger.json
 
     Do not open browser, after server has been started
     $ swagger-ui https://example.com/my-api.toml --do-not-open
+```
+
+### Scripts
+
+If have a complex logic to build an [OpenAPI](https://www.openapis.org/) document, maybe it is separated into multiply sources and parts, you can execute JavaScript code, which runs in the same Node.js environment as the application:
+
+```javascript
+// use any Node.js you want
+const fs = require('fs');
+// you are also able to access 3rd party modules
+// if a 'node_modules' folder is available
+const axios = require('axios').default;
+// make use of local Node modules
+// which exports functions that loads
+// parts of the document, e.g.
+const myModule = require('/path/to/my/module.js');
+
+const info = await fs.promises.readFile('/path/to/apiDocumentInfo.json', 'utf8');
+
+// maybe load data from remote sources
+const paths = (await axios.get('https://strapi.example.com/paths')).data;
+const components = await myModule.loadComponents();
+
+// put all parts together ...
+const doc = {
+  openapi: "3.0.0",
+
+  info,
+
+  servers: [
+    {
+      url: "http://petstore.swagger.io/api"
+    }
+  ],
+
+  paths,
+  components,
+};
+
+// ... and return the document
+return doc;
 ```
 
 ## Download

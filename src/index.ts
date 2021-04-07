@@ -32,6 +32,7 @@ import { createServer, IncomingMessage, Server, ServerResponse } from 'http';
 import { getAbsoluteFSPath } from 'swagger-ui-dist';
 import { promisify } from 'util';
 import { defaultFavIcon, indexHtml, swaggerUiInit } from './templates';
+import { executeCode } from './code';
 
 type DocumentReader = () => Promise<any>;
 
@@ -61,6 +62,7 @@ enum ExitCode {
 
 const DEFAULT_CHARSET = 'utf8';
 const DEFAULT_CHARSET_HTTP = 'utf-8';
+const MIME_JAVASCRIPT = 'text/javascript';
 const MIME_JSON = 'application/json';
 const MIME_TOML = 'application/toml';
 const MIME_YAML = 'application/x-yaml';
@@ -87,6 +89,9 @@ Options
 Examples
   Starts a new server instance on port 8080 for a new file
   $ swagger-ui swaggerFile.yaml
+
+  Run a Node.js script (also from a remote host), which builds the document
+  $ swagger-ui buildDoc.js
 
   Using port 8181 and load document from HTTP server
   $ swagger-ui --port=8181 https://petstore.swagger.io/v2/swagger.json
@@ -143,6 +148,8 @@ function createHttpDocReader(swaggerUri: string): DocumentReader {
                 type = MIME_YAML;
             } else if (type?.endsWith('toml')) {
                 type = MIME_TOML;
+            } else if (type?.endsWith('javascript')) {
+                type = MIME_JAVASCRIPT;
             } else {
                 type = undefined;
             }
@@ -156,6 +163,8 @@ function createHttpDocReader(swaggerUri: string): DocumentReader {
                     type = MIME_YAML;
                 } else if (swaggerUri.endsWith('.toml')) {
                     type = MIME_TOML;
+                } else if (swaggerUri.endsWith('.js')) {
+                    type = MIME_JAVASCRIPT;
                 }
             }
 
@@ -165,6 +174,8 @@ function createHttpDocReader(swaggerUri: string): DocumentReader {
                 return yaml.safeLoad(getStringData());
             } else if (type?.endsWith('toml')) {
                 return toml.parse(getStringData());
+            } else if (type?.endsWith('javascript')) {
+                return await executeCode(getStringData());
             }
         }
 
@@ -185,6 +196,8 @@ function createLocalFileDocReader(swaggerFile: string): DocumentReader {
             return yaml.safeLoad(await readFile(swaggerFile, DEFAULT_CHARSET));
         } else if (swaggerFile.endsWith('.toml')) {
             return toml.parse(await readFile(swaggerFile, DEFAULT_CHARSET));
+        } else if (swaggerFile.endsWith('.js')) {
+            return await executeCode(await readFile(swaggerFile, DEFAULT_CHARSET));
         }
 
         exitWith(ExitCode.InvalidDocumentFormat, `${swaggerFile} must have one of the following file extensions: json, toml, yaml, yml!`);
